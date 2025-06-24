@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checklist Mariage</title>
+    <style>
+        /* Styles CSS basiques pour rendre le formulaire un peu plus agréable */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="date"],
+        input[type="time"],
+        textarea {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .form-actions {
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: space-between;
+        }
+        input[type="submit"],
+        button { 
+            background-color: #e8a6b2;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 18px;
+            flex: 1; 
+            min-width: 150px; 
+            transition: background-color 0.3s ease;
+        }
+        input[type="submit"]:hover,
+        button:hover {
+            background-color: #d18d99;
+        }
+        /* Style spécifique pour le bouton Réinitialiser */
+        #resetButton {
+            background-color: #f0f0f0;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+        #resetButton:hover {
+            background-color: #e0e0e0;
+        }
+
+        .location-time-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .location-time-group > div {
+            flex: 1;
+            min-width: 150px;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+        /* Cache l'input type="file" */
+        #fileInput {
+            display: none; 
+        }
+    </style>
+
+    <script defer>
+        document.addEventListener('DOMContentLoaded', function() {
+            const checklistForm = document.getElementById('checklistForm');
+            const fileInput = document.getElementById('fileInput');
+            const loadButton = document.getElementById('loadChecklistBtn');
+            const resetButton = document.getElementById('resetButton'); // NOUVEAU : Référence au bouton Réinitialiser
+
+            if (!checklistForm) {
+                console.error("Erreur critique : Le formulaire avec l'ID 'checklistForm' n'a PAS été trouvé. Le script ne peut pas s'attacher.");
+                return;
+            }
+            if (!fileInput || !loadButton || !resetButton) {
+                console.error("Erreur critique : Un élément HTML essentiel n'a PAS été trouvé. Vérifiez les IDs et les classes.");
+            }
+
+            // --- EXPORT CSV (Enregistrer) ---
+            checklistForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                if (!checklistForm.checkValidity()) {
+                    checklistForm.reportValidity();
+                    console.warn("Formulaire non valide. L'enregistrement n'a pas été initié car des champs obligatoires sont manquants.");
+                    return;
+                }
+
+                console.log("Validation réussie. Tentative de création et enregistrement du fichier CSV.");
+
+                const formData = new FormData(checklistForm);
+                exportAsCsv(formData);
+            });
+
+            // --- IMPORT (Charger) ---
+            if (loadButton) {
+                loadButton.addEventListener('click', function() {
+                    fileInput.click();
+                });
+            }
+            
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileSelect);
+            }
+
+            // --- NOUVEAU : Réinitialiser le formulaire ---
+            if (resetButton) {
+                resetButton.addEventListener('click', function() {
+                    checklistForm.reset(); // Méthode native pour réinitialiser les champs
+                    alert("Le formulaire a été réinitialisé.");
+                });
+            }
+
+            // --- Fonctions de gestion des fichiers ---
+
+            function exportAsCsv(formData) {
+                const headers = [
+                    "Noms des Mariés",
+                    "Date du Mariage",
+                    "Lieu Cérémonie Civile",
+                    "Horaire Cérémonie Civile",
+                    "Lieu Cérémonie Laïque/Religieuse",
+                    "Horaire Cérémonie Laïque/Religieuse",
+                    "Lieu Vin d'Honneur",
+                    "Horaire Vin d'Honneur",
+                    "Lieu Réception",
+                    "Horaire Réception",
+                    "Commentaires Cérémonies",
+                    "Lieu Coiffure Mariée",
+                    "Horaire Coiffure Mariée",
+                    "Lieu Maquillage Mariée",
+                    "Horaire Maquillage Mariée",
+                    "Lieu Habillage Mariée",
+                    "Horaire Habillage Mariée",
+                    "Lieu Habillage Marié",
+                    "Horaire Habillage Marié",
+                    "Commentaires Préparatifs"
+                ];
+
+                const commentairesCeremonies = (formData.get('commentaires_ceremonies') || '').replace(/(\r\n|\n|\r)/gm, ' '); 
+                const commentairesPreparatifs = (formData.get('commentaires_preparatifs') || '').replace(/(\r\n|\n|\r)/gm, ' '); 
+
+                const data = [
+                    `"${formData.get('noms_maries')}"`,
+                    `"${formData.get('date_mariage')}"`,
+                    `"${formData.get('lieu_civil')}"`,
+                    `"${formData.get('horaire_civil')}"`,
+                    `"${formData.get('lieu_religieux') || ''}"`,
+                    `"${formData.get('horaire_religieux') || ''}"`,
+                    `"${formData.get('lieu_vin_honneur') || ''}"`,
+                    `"${formData.get('horaire_vin_honneur') || ''}"`,
+                    `"${formData.get('lieu_reception') || ''}"`,
+                    `"${formData.get('horaire_reception') || ''}"`,
+                    `"${commentairesCeremonies}"`,
+                    `"${formData.get('lieu_coiffure_mariee') || ''}"`,
+                    `"${formData.get('horaire_coiffure_mariee') || ''}"`,
+                    `"${formData.get('lieu_maquillage_mariee') || ''}"`,
+                    `"${formData.get('horaire_maquillage_mariee') || ''}"`,
+                    `"${formData.get('lieu_habillage_mariee') || ''}"`,
+                    `"${formData.get('horaire_habillage_mariee') || ''}"`,
+                    `"${formData.get('lieu_habillage_marie') || ''}"`,
+                    `"${formData.get('horaire_habillage_marie') || ''}"`,
+                    `"${commentairesPreparatifs}"`
+                ];
+
+                const csvContent = headers.join(';') + '\n' + data.join(';');
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); 
+                const downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(blob);
+
+                const mariageDateString = formData.get('date_mariage');
+                const nomsMariesRaw = formData.get('noms_maries');
+                
+                let nomsMariesForFileName = '';
+                if (nomsMariesRaw) {
+                    nomsMariesForFileName = nomsMariesRaw
+                        .replace(/[^\p{L}\p{N}& ]/gu, '') 
+                        .trim() 
+                        .replace(/ /g, '_'); 
+                    if (nomsMariesForFileName.length > 30) {
+                        nomsMariesForFileName = nomsMariesForFileName.substring(0, 30);
+                    }
+                }
+                
+                let fileNameDate = '';
+                if (mariageDateString) {
+                    const parts = mariageDateString.split('-');
+                    if (parts.length === 3) {
+                        fileNameDate = `${parts[0]}${parts[1]}${parts[2]}`;
+                    }
+                }
+                
+                if (!fileNameDate) {
+                    const today = new Date();
+                    const year = today.getFullYear();
+                    const month = String(today.getMonth() + 1).padStart(2, '0');
+                    const day = String(today.getDate()).padStart(2, '0');
+                    fileNameDate = `${year}${month}${day}`;
+                }
+
+                downloadLink.download = `checklist_${fileNameDate}${nomsMariesForFileName ? '_' + nomsMariesForFileName : ''}.csv`;
+
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(downloadLink.href);
+            }
+
+            function handleFileSelect(event) {
+                const file = event.target.files[0];
+
+                if (!file) {
+                    return;
+                }
+
+                if (!file.name.toLowerCase().endsWith('.csv')) {
+                    alert("Veuillez sélectionner un fichier CSV (.csv).");
+                    event.target.value = ''; 
+                    return;
+                }
+
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const fileContent = e.target.result;
+                    parseAndFillForm(fileContent);
+                    event.target.value = ''; 
+                };
+
+                reader.onerror = function(e) {
+                    console.error("Erreur lors de la lecture du fichier :", e);
+                    alert("Impossible de lire le fichier. Veuillez vérifier qu'il s'agit d'un fichier CSV valide.");
+                };
+
+                reader.readAsText(file, 'UTF-8');
+            }
+
+            function parseAndFillForm(content) {
+                const lines = content.split('\n');
+                if (lines.length < 2) {
+                    alert("Fichier CSV invalide : Moins de 2 lignes (en-têtes + données).");
+                    return;
+                }
+
+                const headers = lines[0].split(';').map(h => h.trim().replace(/"/g, ''));
+                const values = lines[1].split(';').map(v => v.trim().replace(/"/g, ''));
+
+                if (headers.length !== values.length) {
+                    // Tenter une récupération si le fichier a moins de colonnes (ancien format)
+                    if (values.length < headers.length) {
+                        console.warn("Fichier CSV a moins de colonnes que prévu. Tentative de lecture avec les colonnes existantes.");
+                    } else {
+                        alert("Erreur de format CSV : Le nombre de colonnes d'en-tête ne correspond pas au nombre de colonnes de données. Veuillez utiliser un fichier généré par cette application.");
+                        console.error("En-têtes:", headers);
+                        console.error("Valeurs:", values);
+                        return;
+                    }
+                }
+
+                const dataMap = {};
+                headers.forEach((header, index) => {
+                    dataMap[header] = values[index];
+                });
+                
+                document.getElementById('nomsMaries').value = dataMap["Noms des Mariés"] || '';
+                document.getElementById('dateMariage').value = dataMap["Date du Mariage"] || '';
+                document.getElementById('lieuCivil').value = dataMap["Lieu Cérémonie Civile"] || '';
+                document.getElementById('horaireCivil').value = dataMap["Horaire Cérémonie Civile"] || '';
+                document.getElementById('lieuReligieux').value = dataMap["Lieu Cérémonie Laïque/Religieuse"] || '';
+                document.getElementById('horaireReligieux').value = dataMap["Horaire Cérémonie Laïque/Religieuse"] || '';
+                document.getElementById('lieuVinHonneur').value = dataMap["Lieu Vin d'Honneur"] || '';
+                document.getElementById('horaireVinHonneur').value = dataMap["Horaire Vin d'Honneur"] || '';
+                document.getElementById('lieuReception').value = dataMap["Lieu Réception"] || '';
+                document.getElementById('horaireReception').value = dataMap["Horaire Réception"] || '';
+                document.getElementById('commentairesCeremonies').value = dataMap["Commentaires Cérémonies"] || '';
+
+                document.getElementById('lieuCoiffureMariée').value = dataMap["Lieu Coiffure Mariée"] || '';
+                document.getElementById('horaireCoiffureMariée').value = dataMap["Horaire Coiffure Mariée"] || '';
+                document.getElementById('lieuMaquillageMariée').value = dataMap["Lieu Maquillage Mariée"] || '';
+                document.getElementById('horaireMaquillageMariée').value = dataMap["Horaire Maquillage Mariée"] || '';
+                document.getElementById('lieuHabillageMariée').value = dataMap["Lieu Habillage Mariée"] || '';
+                document.getElementById('horaireHabillageMariée').value = dataMap["Horaire Habillage Mariée"] || '';
+                document.getElementById('lieuHabillageMarié').value = dataMap["Lieu Habillage Marié"] || '';
+                document.getElementById('horaireHabillageMarié').value = dataMap["Horaire Habillage Marié"] || '';
+                document.getElementById('commentairesPreparatifs').value = dataMap["Commentaires Préparatifs"] || '';
+
+                console.log("Formulaire rempli avec les données du fichier CSV.", dataMap);
+                alert("Checklist chargée avec succès !");
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Checklist Mariage</h1>
+        <form id="checklistForm">
+            <div class="form-group">
+                <label for="nomsMaries">Nom des Mariés :</label>
+                <input type="text" id="nomsMaries" name="noms_maries" placeholder="Ex: Anne & Pierre Dupont" required>
+            </div>
+
+            <div class="form-group">
+                <label for="dateMariage">Date du Mariage :</label>
+                <input type="date" id="dateMariage" name="date_mariage" required>
+            </div>
+
+            <hr>
+
+            <h2>Détails des Cérémonies et Réceptions</h2>
+
+            <div class="form-group">
+                <label>Cérémonie Civile :</label>
+                <div class="location-time-group">
+                    <div>
+                        <label for="lieuCivil" class="sr-only">Lieu Cérémonie Civile</label>
+                        <input type="text" id="lieuCivil" name="lieu_civil" placeholder="Lieu de la cérémonie civile" required>
+                    </div>
+                    <div>
+                        <label for="horaireCivil" class="sr-only">Horaire Cérémonie Civile</label>
+                        <input type="time" id="horaireCivil" name="horaire_civil" required>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Cérémonie Laïque / Religieuse :</label>
+                <div class="location-time-group">
+                    <div>
+                        <label for="lieuReligieux" class="sr-only">Lieu Cérémonie Laïque/Religieuse</label>
+                        <input type="text" id="lieuReligieux" name="lieu_religieux" placeholder="Lieu de la cérémonie laïque / religieuse">
+                    </div>
+                    <div>
+                        <label for="horaireReligieux" class="sr-only">Horaire Cérémonie Laïque/Religieuse</label>
+                        <input type="time" id="horaireReligieux" name="horaire_religieux">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Vin d'Honneur :</label>
+                <div class="location-time-group">
+                    <div>
+                        <label for="lieuVinHonneur" class="sr-only">Lieu Vin d'Honneur</label>
+                        <input type="text" id="lieuVinHonneur" name="lieu_vin_honneur" placeholder="Lieu du vin d'honneur">
+                    </div>
+                    <div>
+                        <label for="horaireVinHonneur" class="sr-only">Horaire Vin d'Honneur</label>
+                        <input type="time" id="horaireVinHonneur" name="horaire_vin_honneur">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Réception :</label>
+                <div class="location-time-group">
+                    <div>
+                        <label for="lieuReception" class="sr-only">Lieu Réception</label>
+                        <input type="text" id="lieuReception" name="lieu_reception" placeholder="Lieu de la réception">
+                    </div>
+                    <div>
+                        <label for="horaireReception" class="sr-only">Horaire Réception</label>
+                        <input type="time" id="horaireReception" name="horaire_reception">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="commentairesCeremonies">Commentaires (Cérémonies et Réceptions) :</label>
+                <textarea id="commentairesCeremonies" name="commentaires_ceremonies" placeholder="Ajoutez des notes spécifiques aux cérémonies et réceptions..."></textarea>
+            </div>
+
+            <hr>
+            
+            <h2>Détails des préparatifs</h2>
+
+            <div class="form-group">
+                <label>Coiffure de la Mariée :</label>
+                <div class="location-time-group">
+                    <div>
+                        <label for="lieuCoiffureMariée" class="sr-only">Lieu Coiffure Mariée</label>
+                        <input type="text" id="lieuCoiffureMariée" name="lieu_coiffure_mariee" placeholder="Lieu de la coiffure">
+                    </div>
+                    <div>
+                        <label for="horaireCoiffureMariée" class="sr-only">Horaire Coiffure Mariée</label>
+                        <input type="time" id="horaireCoiffureMariée" name="horaire_coiffure_mariee">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Maquillage de la Mariée :</label>
+                <div class="location-time-group">
+                    <div>
+                        <label for="lieuMaquillageMariée" class="sr-only">Lieu Maquillage Mariée</label>
+                        <input type="text" id="lieuMaquillageMariée" name="lieu_maquillage_mariee" placeholder="Lieu du maquillage">
+                    </div>
+                    <div>
+                        <label for="horaireMaquillageMariée" class="sr-only">Horaire Maquillage Mariée</label>
+                        <input type="time" id="horaireMaquillageMariée" name="horaire_maquillage_mariee">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Habillage de la Mariée :</label>
+                <div class="location-time-group">
+                    <div>
+                        <label for="lieuHabillageMariée" class="sr-only">Lieu Habillage Mariée</label>
+                        <input type="text" id="lieuHabillageMariée" name="lieu_habillage_mariee" placeholder="Lieu de l'habillage">
+                    </div>
+                    <div>
+                        <label for="horaireHabillageMariée" class="sr-only">Horaire Habillage Mariée</label>
+                        <input type="time" id="horaireHabillageMariée" name="horaire_habillage_mariee">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Habillage du Marié :</label>
+                <div class="location-time-group">
+                    <div>
+                        <label for="lieuHabillageMarié" class="sr-only">Lieu Habillage Marié</label>
+                        <input type="text" id="lieuHabillageMarié" name="lieu_habillage_marie" placeholder="Lieu de l'habillage">
+                    </div>
+                    <div>
+                        <label for="horaireHabillageMarié" class="sr-only">Horaire Habillage Marié</label>
+                        <input type="time" id="horaireHabillageMarié" name="horaire_habillage_marie">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="commentairesPreparatifs">Commentaires (Préparatifs) :</label>
+                <textarea id="commentairesPreparatifs" name="commentaires_preparatifs" placeholder="Ajoutez des notes spécifiques aux préparatifs..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" id="loadChecklistBtn">Charger Checklist</button>
+                <button type="button" id="resetButton">Réinitialiser</button> <input type="submit" value="Enregistrer"> </div>
+            
+            <input type="file" id="fileInput" accept=".csv">
+
+        </form>
+    </div>
+
+</body>
+</html>
